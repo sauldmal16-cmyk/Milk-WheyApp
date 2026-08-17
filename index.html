@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d1710">
+<title>Milk-WheyApp</title>
+<style>
+:root{--bg:#07100a;--panel:#101c14;--panel2:#0b1510;--line:#2d4936;--green:#20f58a;--text:#f4fff8;--muted:#91ad9a;--danger:#ff6b6b;--warn:#ffd166}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+.app{max-width:520px;margin:auto;min-height:100vh;padding:18px;background:#0d1710}.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.brand{font-size:22px;font-weight:900}.tag{font-size:11px;background:var(--green);color:#031008;border-radius:999px;padding:4px 8px;font-weight:900}
+.muted{color:var(--muted)}.small{font-size:12px}.card{background:var(--panel);border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:16px;margin-top:14px}
+.input{width:100%;background:var(--panel2);color:#fff;border:1px solid var(--line);border-radius:14px;padding:13px}.btn{border:0;border-radius:14px;padding:12px 13px;font-weight:850}
+.green{background:var(--green);color:#04110a}.dark{background:#1b2b20;color:#fff;border:1px solid rgba(255,255,255,.08)}.danger{background:#4c2020;color:#fff}
+.row{display:flex;gap:10px;align-items:center}.between{justify-content:space-between}.grid{display:grid;gap:10px}.g3{grid-template-columns:repeat(3,1fr)}
+.tank{background:#17261b;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:12px;cursor:pointer}.tank.active{background:var(--green);color:#04110a}
+.big{font-size:46px;font-weight:950;letter-spacing:-2px}.bar{height:15px;background:#1d2b21;border-radius:99px;overflow:hidden}.fill{height:100%;background:var(--green)}
+.pill{display:inline-block;border-radius:999px;padding:6px 9px;background:#18271d;color:var(--green);font-size:11px;font-weight:850}
+.notice{font-size:12px;line-height:1.5;background:#0b1510;border:1px solid rgba(32,245,138,.18);border-radius:14px;padding:12px}.warn{color:var(--warn)}.err{color:var(--danger)}
+.section{font-weight:900;margin-bottom:10px}.hidden{display:none}.tabs{display:flex;gap:7px;overflow:auto;padding-bottom:3px}.tab{white-space:nowrap;border:0;background:#17261b;color:#cde0d3;padding:9px 11px;border-radius:12px;font-weight:800}.tab.active{background:var(--green);color:#04110a}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:8px 5px;border-bottom:1px solid rgba(255,255,255,.06)}th{color:var(--muted)}.scroll{max-height:360px;overflow:auto}
+.kpi{font-size:12px;color:var(--muted)}.kpi b{display:block;color:#fff;font-size:18px;margin-top:3px}.login{padding-top:8vh}.logout{background:none;color:var(--muted);border:0;font-weight:800}
+@media(max-width:390px){.g3{grid-template-columns:1fr}.big{font-size:40px}}
+</style>
+</head>
+<body><div id="app" class="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://lpruaeiadbmuktsosiur.supabase.co';
+const SUPABASE_KEY='sb_publishable_eR96pHoE-uu5qLJECPTOUw_loScd0oo';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const PRICE=0.25;
+const LOCAL_TANK_SPECS={
+  1:{L:409,D:160,calibrated:true},
+  2:{L:null,D:null,calibrated:false},
+  3:{L:297,D:155,calibrated:true}
+};
+const TEMP_USERS=[
+ {username:'gerardo',display_name:'Gerardo',role:'pipero',password:'Ger-4826!W'},
+ {username:'itzel',display_name:'Itzel',role:'employee',password:'Itz-7315!M'},
+ {username:'josedavid',display_name:'José David',role:'employee',password:'JD-8642!Milk'},
+ {username:'blanca',display_name:'Blanca',role:'employee',password:'Bla-5931!W'},
+ {username:'oficina',display_name:'Oficina',role:'office',password:'Ofi-2468!M'},
+ {username:'jony',display_name:'Jony',role:'employee',password:'Jon-9174!W'}
+];
+let currentUser=null,currentProfile=null,tanks=[],tankId=1,tab='inicio';
+const app=document.getElementById('app');
+const money=n=>Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+const num=n=>Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0});
+async function monthWithdrawalSummary(){
+ const now=new Date(), start=new Date(now.getFullYear(),now.getMonth(),1), next=new Date(now.getFullYear(),now.getMonth()+1,1);
+ const {data,error}=await sb.from('movements').select('liters').eq('movement_type','withdrawal').gte('occurred_at',start.toISOString()).lt('occurred_at',next.toISOString());
+ if(error) return {liters:0,money:0};
+ const liters=(data||[]).reduce((a,r)=>a+Number(r.liters||0),0);
+ return {liters,money:liters*PRICE};
+}
+function segVol(h,D,L){const R=D/2;if(h<=0)return 0;if(h>=D)return Math.PI*R*R*L/1000;const a=Math.acos((R-h)/R);return (R*R*a-(R-h)*Math.sqrt(2*R*h-h*h))*L/1000}
+function esc(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+async function bootstrapAdmin(){
+  try{
+    await fetch(SUPABASE_URL+'/functions/v1/bootstrap-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'saul',display_name:'Saúl Administrador',password:'MilkWhey-2608!'})});
+  }catch(e){}
+}
+async function login(){
+ const username=document.getElementById('username').value.trim().toLowerCase();
+ const password=document.getElementById('password').value;
+ const {data,error}=await sb.auth.signInWithPassword({email:username+'@milk-wheyapp.local',password});
+ if(error){loginView('Usuario o contraseña incorrectos.');return}
+ currentUser=data.user; await loadProfile(); if(!currentProfile?.active){await sb.auth.signOut();loginView('Esta cuenta está desactivada.');return}
+ await loadTanks(); render();
+}
+async function loadProfile(){
+ const {data,error}=await sb.from('app_users').select('*').eq('id',currentUser.id).single();
+ if(error) throw error; currentProfile=data;
+}
+async function loadTanks(){
+ const {data,error}=await sb.from('tanks').select('*').eq('active',true).order('id');
+ if(!error&&data){tanks=data;if(!tanks.some(t=>t.id===tankId)&&tanks.length)tankId=tanks[0].id}
+}
+function loginView(msg=''){
+ app.innerHTML=`<div class="login"><div class="brand">Milk-WheyApp <span class="tag">ONLINE</span></div><p class="muted">Control de leche, suero y retiros Nestlé</p>
+ <div class="card"><div class="section">Iniciar sesión</div>${msg?`<p class="err small">${esc(msg)}</p>`:''}
+ <label class="small muted">Usuario</label><input id="username" class="input" autocomplete="username" placeholder="Ej. saul">
+ <div style="height:10px"></div><label class="small muted">Contraseña</label><input id="password" class="input" type="password" autocomplete="current-password" placeholder="Contraseña">
+ <div style="height:12px"></div><button class="btn green" id="enter" style="width:100%">ENTRAR</button></div>
+ <div class="notice" style="margin-top:14px"><b>Primer acceso del administrador:</b><br>Usuario: <b>saul</b><br>Contraseña temporal: <b>MilkWhey-2608!</b><br><span class="muted">Cámbiala desde Administración después de entrar.</span></div></div>`;
+ document.getElementById('enter').onclick=login;
+ document.getElementById('password').onkeydown=e=>{if(e.key==='Enter')login()};
+}
+async function render(){
+ if(!currentProfile)return loginView();
+ const role=currentProfile.role;
+ const tabs=[['inicio','Inicio'],['tanques','Tanques'],['historial','Movimientos']];
+ if(role==='admin')tabs.push(['cortes','Cortes'],['admin','Administración']);
+ app.innerHTML=`<div class="top"><div><div class="brand">Milk-WheyApp <span class="tag">ONLINE</span></div><div class="small muted">${esc(currentProfile.display_name)} • ${role}</div></div><button id="logout" class="logout">Salir</button></div>
+ <div class="card"><div class="tabs">${tabs.map(([id,l])=>`<button class="tab ${tab===id?'active':''}" data-tab="${id}">${l}</button>`).join('')}</div></div><div id="content"></div>`;
+ document.getElementById('logout').onclick=async()=>{await sb.auth.signOut();currentUser=currentProfile=null;loginView()};
+ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
+ if(tab==='inicio')homeView(); if(tab==='tanques')tankView(); if(tab==='historial')historyView(); if(tab==='cortes')cutsView(); if(tab==='admin')adminView();
+}
+function homeView(){
+ const c=document.getElementById('content');
+ const action=currentProfile.role==='pipero'?'Registrar retiro':'Registrar medición';
+ c.innerHTML=`<div class="card"><div class="section">Bienvenido, ${esc(currentProfile.display_name)}</div><div class="notice">${currentProfile.role==='admin'?'Tienes acceso completo a Milk-WheyApp.':currentProfile.role==='pipero'?'Tu función principal es registrar los litros que retiras de cada tanque.':'Registra las mediciones o llenados de los tanques.'}</div><div style="height:12px"></div><button id="goTank" class="btn green" style="width:100%">${action.toUpperCase()}</button></div>
+ <div class="card"><div class="section">Tanques activos</div><div class="grid g3">${tanks.map(t=>`<div class="tank"><b>${esc(t.name)}</b><div class="small muted">${num(t.capacity_liters)} L</div></div>`).join('')}</div></div>`;
+ document.getElementById('goTank').onclick=()=>{tab='tanques';render()};
+}
+function tankView(){
+ const c=document.getElementById('content'); if(!tanks.length){c.innerHTML='<div class="card">No hay tanques activos.</div>';return}
+ const t=tanks.find(x=>x.id===tankId)||tanks[0], spec=LOCAL_TANK_SPECS[t.id]||{calibrated:false};
+ const canMeasurement=['admin','employee','office'].includes(currentProfile.role), canWithdrawal=['admin','pipero'].includes(currentProfile.role);
+ c.innerHTML=`<div class="card"><div class="section">Selecciona tanque</div><div class="grid g3">${tanks.map(x=>`<div class="tank ${x.id===t.id?'active':''}" data-tank="${x.id}"><b>${esc(x.name)}</b><div class="small">${num(x.capacity_liters)} L</div></div>`).join('')}</div></div>
+ <div class="card"><div class="row between"><div><div class="small muted">${esc(t.name)}</div><b>Capacidad ${num(t.capacity_liters)} L</b></div><span class="pill">${spec.calibrated?'CALIBRADO':'CAPTURA DIRECTA'}</span></div><div style="height:12px"></div>
+ ${spec.calibrated?`<label class="small muted">Altura del líquido (cm)</label><input id="measure" class="input" type="number" min="0" max="${spec.D}" step=".5" value="0"><div class="small muted" style="margin-top:5px">0–${spec.D} cm</div>`:`<label class="small muted">Litros medidos</label><input id="measure" class="input" type="number" min="0" max="${t.capacity_liters}" step="1" value="0"><div class="small warn" style="margin-top:5px">Cuando tengamos medidas físicas del tanque activamos cálculo por centímetros.</div>`}
+ <div style="height:12px"></div><div class="small muted">LITROS CALCULADOS</div><div class="big"><span id="liters">0</span> <span style="font-size:22px;color:var(--green)">L</span></div><div class="bar"><div id="fill" class="fill" style="width:0"></div></div><div id="pct" class="small muted" style="margin-top:6px"></div></div>
+ <div class="card"><div class="section">Guardar movimiento</div>
+ <label class="small muted">Tipo</label><select id="type" class="input">${canMeasurement?'<option value="measurement">Medición / llenado</option>':''}${canWithdrawal?'<option value="withdrawal">Retiro por pipero</option>':''}</select>
+ <div id="withdrawBox" class="hidden"><div style="height:10px"></div><label class="small muted">Litros que se lleva el pipero</label><input id="withdraw" class="input" type="number" min="0" step="1"><div class="card" style="margin-top:10px;background:#0b1510"><div class="grid g3"><div class="kpi">Este retiro<b id="withdrawMoney">$0.00</b></div><div class="kpi">Litros del mes<b id="monthLiters">0 L</b></div><div class="kpi">Acumulado del mes<b id="monthMoney">$0.00</b></div></div></div></div>
+ <div style="height:10px"></div><label class="small muted">Observación</label><input id="notes" class="input" placeholder="Opcional">
+ <div style="height:12px"></div><button id="saveMove" class="btn green" style="width:100%">GUARDAR MOVIMIENTO</button></div>`;
+ document.querySelectorAll('[data-tank]').forEach(b=>b.onclick=()=>{tankId=Number(b.dataset.tank);tankView()});
+ const measure=document.getElementById('measure'),type=document.getElementById('type'),wb=document.getElementById('withdrawBox'),wi=document.getElementById('withdraw');
+ let monthBaseLiters=0;
+ function calc(){const v=Number(measure.value)||0;const liters=spec.calibrated?segVol(v,spec.D,spec.L):v;document.getElementById('liters').textContent=num(Math.round(liters));const p=Math.max(0,Math.min(100,liters/t.capacity_liters*100));document.getElementById('fill').style.width=p+'%';document.getElementById('pct').textContent=p.toFixed(1)+'% de capacidad';return liters}
+ function refreshWithdrawalMoney(){if(!wi)return;const thisLiters=Math.max(0,Number(wi.value)||0);const wm=document.getElementById('withdrawMoney'),ml=document.getElementById('monthLiters'),mm=document.getElementById('monthMoney');if(wm)wm.textContent='$'+money(thisLiters*PRICE);if(ml)ml.textContent=num(monthBaseLiters+thisLiters)+' L';if(mm)mm.textContent='$'+money((monthBaseLiters+thisLiters)*PRICE)}
+ async function sync(){const isW=type.value==='withdrawal';wb.classList.toggle('hidden',!isW);if(isW){if(!wi.value)wi.value=Math.round(calc());const summary=await monthWithdrawalSummary();monthBaseLiters=summary.liters;refreshWithdrawalMoney()}}
+ measure.oninput=()=>{calc();if(type.value==='withdrawal'&&!wi.value)refreshWithdrawalMoney()};type.onchange=sync;if(wi)wi.oninput=refreshWithdrawalMoney;calc();sync();
+ document.getElementById('saveMove').onclick=async()=>{
+   const calculated=Math.round(calc()), isW=type.value==='withdrawal', liters=isW?Math.round(Number(wi.value)||0):calculated;
+   if(liters<=0)return alert('Captura una cantidad válida.');
+   const row={tank_id:t.id,movement_type:type.value,liters,operator_name:currentProfile.display_name,notes:document.getElementById('notes').value.trim()||null,user_id:currentUser.id};
+   const {error}=await sb.from('movements').insert(row);
+   if(error)return alert('No se pudo guardar: '+error.message);
+   alert('Movimiento guardado correctamente.'); if(isW){monthBaseLiters+=liters;} measure.value=0;if(wi)wi.value='';calc();refreshWithdrawalMoney();
+ };
+}
+async function historyView(){
+ const c=document.getElementById('content');c.innerHTML='<div class="card">Cargando movimientos...</div>';
+ let q=sb.from('movements').select('id,tank_id,movement_type,liters,operator_name,notes,occurred_at,user_id').order('occurred_at',{ascending:false}).limit(100);
+ if(currentProfile.role!=='admin')q=q.eq('user_id',currentUser.id);
+ const {data,error}=await q;if(error){c.innerHTML=`<div class="card err">${esc(error.message)}</div>`;return}
+ c.innerHTML=`<div class="card"><div class="section">${currentProfile.role==='admin'?'Historial general':'Mis movimientos'}</div><div class="scroll">${!data.length?'<div class="muted small">Todavía no hay movimientos.</div>':`<table><thead><tr><th>Fecha</th><th>Tanque</th><th>Tipo</th><th>Litros</th><th>Usuario</th></tr></thead><tbody>${data.map(r=>`<tr><td>${new Date(r.occurred_at).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})}</td><td>${r.tank_id}</td><td>${r.movement_type==='withdrawal'?'Retiro':'Medición'}</td><td>${num(r.liters)}</td><td>${esc(r.operator_name)}${r.notes?`<br><span class="muted">${esc(r.notes)}</span>`:''}</td></tr>`).join('')}</tbody></table>`}</div></div>`;
+}
+async function cutsView(){
+ const c=document.getElementById('content');c.innerHTML='<div class="card">Calculando corte...</div>';
+ const now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),1),next=new Date(now.getFullYear(),now.getMonth()+1,1),pay=new Date(now.getFullYear(),now.getMonth()+1,5);
+ const {data:moves}=await sb.from('movements').select('liters,occurred_at').eq('movement_type','withdrawal').gte('occurred_at',start.toISOString()).lt('occurred_at',next.toISOString());
+ const {data:adj}=await sb.from('monthly_adjustments').select('*').eq('period_start',start.toISOString().slice(0,10)).order('created_at',{ascending:false});
+ const liters=(moves||[]).reduce((a,r)=>a+Number(r.liters),0),base=liters*PRICE;
+ let bonus=0,penalty=0;(adj||[]).forEach(a=>{const val=a.calculation_type==='per_liter'?Number(a.amount)*liters:Number(a.amount);if(a.adjustment_type==='bonus')bonus+=val;else penalty+=val});
+ const total=base+bonus-penalty;
+ c.innerHTML=`<div class="card"><div class="section">Corte ${start.toLocaleDateString('es-MX',{month:'long',year:'numeric'})}</div><div class="grid g3"><div class="kpi">Litros retirados<b>${num(liters)} L</b></div><div class="kpi">Base $0.25/L<b>$${money(base)}</b></div><div class="kpi">Total final<b>$${money(total)}</b></div></div><div class="notice" style="margin-top:12px">Pago programado: <b>${pay.toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})}</b><br>Bonos: <b>$${money(bonus)}</b> • Penalizaciones: <b>$${money(penalty)}</b></div></div>
+ <div class="card"><div class="section">Agregar bono o penalización</div><select id="adjType" class="input"><option value="bonus">Bono</option><option value="penalty">Penalización</option></select><div style="height:8px"></div><select id="calcType" class="input"><option value="fixed">Cantidad fija ($)</option><option value="per_liter">Ajuste por litro ($/L)</option></select><div style="height:8px"></div><input id="adjAmount" class="input" type="number" min="0" step=".01" placeholder="Cantidad"><div style="height:8px"></div><input id="adjReason" class="input" placeholder="Motivo"><div style="height:10px"></div><button id="saveAdj" class="btn green" style="width:100%">GUARDAR AJUSTE</button></div>`;
+ document.getElementById('saveAdj').onclick=async()=>{const amount=Number(document.getElementById('adjAmount').value)||0;if(amount<=0)return alert('Captura una cantidad válida.');const row={period_start:start.toISOString().slice(0,10),adjustment_type:document.getElementById('adjType').value,calculation_type:document.getElementById('calcType').value,amount,reason:document.getElementById('adjReason').value.trim()||null,created_by:currentUser.id};const {error}=await sb.from('monthly_adjustments').insert(row);if(error)return alert(error.message);cutsView()};
+}
+async function adminView(){
+ const c=document.getElementById('content');c.innerHTML='<div class="card">Cargando administración...</div>';
+ const {data:users}=await sb.from('app_users').select('*').order('display_name');
+ c.innerHTML=`<div class="card"><div class="section">Usuarios</div><div class="notice"><b>Usuarios iniciales:</b> puedes crearlos con un toque. Después podrás cambiar las claves o desactivar cuentas.</div><div style="height:10px"></div><button id="createInitial" class="btn green" style="width:100%">CREAR USUARIOS INICIALES</button><div id="creds" class="small" style="margin-top:10px"></div><div class="scroll" style="margin-top:12px">${(users||[]).map(u=>`<div class="row between" style="padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06)"><div><b>${esc(u.display_name)}</b><div class="small muted">${esc(u.username)} • ${u.role}</div></div>${u.id===currentUser.id?'<span class="pill">TÚ</span>':`<button class="btn ${u.active?'danger':'dark'}" data-active="${u.id}" data-state="${u.active?'0':'1'}">${u.active?'Desactivar':'Activar'}</button>`}</div>`).join('')}</div></div>
+ <div class="card"><div class="section">Tanques</div>${tanks.map(t=>`<div class="row between" style="padding:9px 0"><div><b>${esc(t.name)}</b><div class="small muted">${num(t.capacity_liters)} L</div></div></div>`).join('')}<div style="height:10px"></div><input id="tankName" class="input" placeholder="Nombre, ej. Tanque 04"><div style="height:8px"></div><input id="tankCap" class="input" type="number" min="1" placeholder="Capacidad en litros"><div style="height:10px"></div><button id="addTank" class="btn green" style="width:100%">AGREGAR TANQUE</button></div>
+ <div class="card"><div class="section">Mi contraseña</div><input id="newPass" class="input" type="password" placeholder="Nueva clave (mínimo 8 caracteres)"><div style="height:10px"></div><button id="changeMine" class="btn dark" style="width:100%">CAMBIAR MI CONTRASEÑA</button></div>`;
+ document.getElementById('createInitial').onclick=async()=>{let out=[];for(const u of TEMP_USERS){const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'create',...u}});out.push(error||data?.error?`${u.display_name}: ya existe o error`:`${u.display_name}: ${u.username} / ${u.password}`)}document.getElementById('creds').innerHTML='<div class="notice">'+out.map(esc).join('<br>')+'</div>';setTimeout(adminView,4500)};
+ document.querySelectorAll('[data-active]').forEach(b=>b.onclick=async()=>{const {error}=await sb.functions.invoke('admin-users',{body:{action:'set_active',id:b.dataset.active,active:b.dataset.state==='1'}});if(error)alert(error.message);else adminView()});
+ document.getElementById('addTank').onclick=async()=>{const name=document.getElementById('tankName').value.trim(),cap=Math.round(Number(document.getElementById('tankCap').value)||0);if(!name||cap<=0)return alert('Captura nombre y capacidad.');const nextId=(tanks.reduce((m,t)=>Math.max(m,Number(t.id)),0)||0)+1;const {error}=await sb.from('tanks').insert({id:nextId,name,capacity_liters:cap,active:true});if(error)return alert(error.message);await loadTanks();adminView()};
+ document.getElementById('changeMine').onclick=async()=>{const password=document.getElementById('newPass').value;if(password.length<8)return alert('Usa mínimo 8 caracteres.');const {data,error}=await sb.functions.invoke('admin-users',{body:{action:'change_password',id:currentUser.id,password}});if(error||data?.error)return alert(error?.message||data.error);alert('Contraseña actualizada.')};
+}
+(async()=>{await bootstrapAdmin();const {data:{session}}=await sb.auth.getSession();if(session){currentUser=session.user;try{await loadProfile();await loadTanks();render()}catch{loginView()}}else loginView()})();
+</script></body>
+</html>
