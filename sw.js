@@ -1,1 +1,20 @@
-const CACHE='milk-whey-v9-3-final';const ASSETS=['./','./index.html','./manifest.webmanifest','./icon.svg','./logo.jpg'];self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).catch(()=>{})));self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x))))));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));
+const CACHE='milk-whey-v9-3-3';
+const ASSETS=['./','./index.html','./manifest.webmanifest','./icon.svg','./logo.jpg'];
+self.addEventListener('install',event=>{
+  self.skipWaiting();
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).catch(()=>{}));
+});
+self.addEventListener('activate',event=>{
+  event.waitUntil(Promise.all([
+    caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))),
+    self.clients.claim()
+  ]));
+});
+self.addEventListener('fetch',event=>{
+  if(event.request.method!=='GET') return;
+  event.respondWith(fetch(event.request,{cache:'no-store'}).then(response=>{
+    const copy=response.clone();
+    caches.open(CACHE).then(cache=>cache.put(event.request,copy)).catch(()=>{});
+    return response;
+  }).catch(()=>caches.match(event.request)));
+});

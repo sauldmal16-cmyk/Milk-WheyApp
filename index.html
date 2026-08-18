@@ -293,6 +293,13 @@ body{
   opacity:.8;
 }
 
+
+/* ===== V9.3.3 — tanque lechero inequívoco + importes + actualización ===== */
+.dairy-tank-svg{width:78px;height:52px;display:block;overflow:visible;filter:drop-shadow(0 2px 2px rgba(20,45,32,.16))}
+.dairy-tank-svg.small{width:58px;height:39px}
+.tank-icon-v9 .dairy-tank-svg{width:70px;height:48px}
+.card .kpi{color:#7b8981!important}.card .kpi b{display:block!important;color:#123526!important;opacity:1!important;visibility:visible!important;font-weight:950!important;font-size:18px!important}
+
 </style>
 </head>
 <body><div id="app" class="app"></div><div id="modal" class="modal hidden"></div>
@@ -309,7 +316,7 @@ const esc=(s='')=>String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'
 const num=n=>Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0});
 const money=n=>Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
 const ADMIN_PERMS={measure:true,withdraw:true,view_all:true,edit_movements:true,delete_movements:true,manage_tanks:true,manage_users:true,export:true,finance:true};
-function perms(){if(currentProfile?.role==='admin')return ADMIN_PERMS;const p=currentProfile?.permissions||{};return {measure:p.measure??['employee','office'].includes(currentProfile?.role),withdraw:p.withdraw??currentProfile?.role==='pipero',view_all:!!p.view_all,edit_movements:!!p.edit_movements,delete_movements:!!p.delete_movements,manage_tanks:false,manage_users:!!p.manage_users,export:!!p.export,finance:!!p.finance}}
+function perms(){if(currentProfile?.role==='admin'){const isOwner=String(currentProfile?.username||'').toLowerCase()==='saul';return {...ADMIN_PERMS,manage_tanks:isOwner};}const p=currentProfile?.permissions||{};return {measure:p.measure??['employee','office'].includes(currentProfile?.role),withdraw:p.withdraw??currentProfile?.role==='pipero',view_all:!!p.view_all,edit_movements:!!p.edit_movements,delete_movements:!!p.delete_movements,manage_tanks:false,manage_users:!!p.manage_users,export:!!p.export,finance:!!p.finance}}
 function monthKey(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
 function monthRange(key){const [y,m]=key.split('-').map(Number),start=new Date(y,m-1,1),next=new Date(y,m,1);return {start,next,label:start.toLocaleDateString('es-MX',{month:'long',year:'numeric'})}}
 function reportHead(title){return `<div class="reporthead"><img src="logo.jpg"><div><b style="font-size:20px">${BRAND}</b><div>${COMPANY}</div><div class="small">${esc(title)}</div></div></div>`}
@@ -317,7 +324,7 @@ function tankLiters(t,h){h=Number(h)||0;if(t.geometry_type==='horizontal_cylinde
 function calibrated(t){return (t.geometry_type==='horizontal_cylinder'&&t.diameter_cm&&t.length_cm)||(t.geometry_type==='vertical_cylinder'&&t.diameter_cm)||(t.geometry_type==='tub'&&t.length_cm&&t.width_cm)}
 function geoName(t){return t.geometry_type==='horizontal_cylinder'?'Cilindro horizontal':t.geometry_type==='vertical_cylinder'?'Cilíndrico vertical':t.geometry_type==='tub'?'Tina':'Captura directa'}
 function tankIcon(t){return t.geometry_type==='horizontal_cylinder'?'horizontal':t.geometry_type==='vertical_cylinder'?'vertical':t.geometry_type==='tub'?'tub':'direct'}
-function tankShape(t,small=false){const c=tankIcon(t),s=small?' tank-shape-sm':'';return `<span class="tank-shape ${c}${s}"><i></i></span>`}
+function tankShape(t,small=false){const c=tankIcon(t);if(c==='horizontal'){const cls=small?' dairy-tank-svg small':' dairy-tank-svg';return `<svg class="${cls.trim()}" viewBox="0 0 150 92" aria-label="Tanque lechero de acero inoxidable"><defs><linearGradient id="steel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fafdfc"/><stop offset=".42" stop-color="#cbd4d0"/><stop offset=".72" stop-color="#8f9d96"/><stop offset="1" stop-color="#dce3df"/></linearGradient></defs><path d="M18 23h80c18 0 31 12 31 27s-13 27-31 27H18C8 77 3 65 3 50S8 23 18 23Z" fill="url(#steel)" stroke="#6f7e77" stroke-width="2"/><ellipse cx="99" cy="50" rx="30" ry="27" fill="none" stroke="#89968f" stroke-width="2"/><path d="M25 23v-7h37v7M32 16h23" fill="none" stroke="#697770" stroke-width="3" stroke-linecap="round"/><path d="M22 77v9M48 77v9M79 77v9" stroke="#596860" stroke-width="5"/><rect x="105" y="39" width="25" height="39" rx="3" fill="#aab5b0" stroke="#66746d" stroke-width="2"/><rect x="109" y="43" width="17" height="7" rx="1" fill="#397f94"/><path d="M135 18v58M145 18v58M135 29h10M135 40h10M135 51h10M135 62h10" stroke="#65736c" stroke-width="3" stroke-linecap="round"/><path d="M132 18c0-7 13-7 13 0" fill="none" stroke="#65736c" stroke-width="3"/></svg>`;}const s=small?' tank-shape-sm':'';return `<span class="tank-shape ${c}${s}"><i></i></span>`}
 async function bootstrapAdmin(){try{await fetch(SUPABASE_URL+'/functions/v1/bootstrap-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'saul',display_name:'Saúl Administrador',password:'MilkWhey-2608!'})})}catch(e){}}
 async function loadProfile(){const {data,error}=await sb.from('app_users').select('*').eq('id',currentUser.id).single();if(error)throw error;currentProfile=data}
 async function loadTanks(){const {data,error}=await sb.from('tanks').select('*').eq('active',true).order('id');if(!error&&data){tanks=data;if(!tanks.some(t=>Number(t.id)===Number(tankId))&&tanks.length)tankId=tanks[0].id}}
