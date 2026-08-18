@@ -1,0 +1,17 @@
+{
+  "name": "Milk-WheyApp • Quesos Los Sauces",
+  "short_name": "Milk-WheyApp",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0d1710",
+  "theme_color": "#0d1710",
+  "description": "Control interno de leche y suero",
+  "icons": [
+    {
+      "src": "icono.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
