@@ -1,0 +1,12 @@
+{
+  "name": "Milk-WheyApp",
+  "short_name": "Milk-WheyApp",
+  "description": "Control de tanques, leche, suero y retiros Nestlé",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#07100a",
+  "theme_color": "#0d1710",
+  "icons": [
+    {"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
